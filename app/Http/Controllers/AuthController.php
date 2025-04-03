@@ -2,42 +2,66 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
-use App\Models\User;
-use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
+use App\Http\Requests\CasCallbackRequest;
+use App\Interfaces\AuthServiceInterface;
+use App\Http\Resources\TokenResource;
+use App\Requests\LoginRequest;
 
 class AuthController extends Controller
 {
+    private $authService;
+
+    public function __construct(AuthServiceInterface $authService)
+    {
+        $this->authService = $authService;
+        $this->middleware('auth:api', ['except' => ['login', 'redirectToCas', 'handleCasCallback']]);
+
+    }
+
     public function redirectToCas()
     {
-        $serviceUrl = urlencode(config('app.url') . '/api/auth/cas-callback');
+        $serviceUrl = $this->authService->getServiceUrl();
+        $casLoginUrl = $this->authService->getCasLoginUrl($serviceUrl);
 
-        return redirect("https://casdes.correios.com.br/login?service={$serviceUrl}");
+        return redirect($casLoginUrl);
     }
 
-    public function handleCasCallback(Request $request)
+    public function handleCasCallback(CasCallbackRequest $request)
     {
-        $ticket = $request->query('ticket');
-        $serviceUrl = config('app.url') . '/api/auth/cas-callback';
-        if (!$ticket) {
-            return response()->json(['error' => 'Ticket ausente'], 400);
+        try {
+            $token = $this->authService->handleCasAuthentication($request->ticket);
+            return new TokenResource(['token' => $token]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], $e->getCode());
         }
-        $casResponse = Http::get("https://casdes.correios.com.br/serviceValidate", [
-            'ticket' => $ticket,
-            'service' => $serviceUrl,
-        ]);
-        // Extração simples do username
-        if (preg_match('/<cas:user>(.*?)<\/cas:user>/', $casResponse->body(), $matches)) {
-            $username = $matches[1];
-            $user = User::firstOrCreate(['username' => $username]);
-            Auth::login($user);
-            $token = JWTAuth::fromUser($user);
-            // return redirect("http://localhost/auth/callback?token={$token}");
-            return redirect($token);
-        }
-        return response()->json(['error' => 'Falha na autenticação CAS'], 401);
     }
 
+    public function login(LoginRequest $request)
+    {
+        try {
+            $token = $this->authService->authenticate($request->only('email', 'password'));
+            return response()->json($this->authService->respondWithToken($token));
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+    public function logout()
+    {
+        auth()->logout();
+        return response()->json(['message' => 'Logout realizado com sucesso']);
+    }
+
+    public function refresh(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json($this->authService->respondWithToken(auth()->refresh()));
+    }
+
+    public function me(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json(auth()->user());
+    }
 }

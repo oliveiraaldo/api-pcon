@@ -3,12 +3,19 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProductController;
 
-Route::get('/auth/cas-redirect', [AuthController::class, 'redirectToCas']);
-Route::get('/auth/cas-callback', [AuthController::class, 'handleCasCallback']);
-Route::middleware(['jwt.auth'])->get('/me', function () {
-    return response()->json(Auth::user());
+Route::prefix('auth')->group(function () {
+    Route::post('login', [AuthController::class, 'login']);
+    Route::get('cas', 'AuthController@redirectToCas');
+    Route::get('cas-callback', 'AuthController@handleCasCallback');
+
+    Route::middleware('auth:api')->group(function () {
+        Route::post('logout', 'AuthController@logout');
+        Route::post('refresh', 'AuthController@refresh');
+        Route::get('me', 'AuthController@me');
+        Route::apiResource('products', ProductController::class);
+    });
 });
 
-use App\Http\Controllers\ProductController;
-Route::apiResource('products', ProductController::class);
+

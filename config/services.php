@@ -27,7 +27,10 @@ return [
     'resend' => [
         'key' => env('RESEND_KEY'),
     ],
-
+    'cas' => [
+        'base_url' => env('CAS_BASE_URL'),
+        'email_domain' => env('CAS_EMAIL_DOMAIN', 'example.com'),
+    ],
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
