@@ -13,7 +13,8 @@ class AuthController extends Controller
     public function redirectToCas()
     {
         $serviceUrl = urlencode(config('app.url') . '/api/auth/cas-callback');
-        return "https://casdes.correios.com.br/login?service={$serviceUrl}";
+
+        return redirect("https://casdes.correios.com.br/login?service={$serviceUrl}");
     }
 
     public function handleCasCallback(Request $request)
