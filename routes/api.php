@@ -9,3 +9,6 @@ Route::get('/auth/cas-callback', [AuthController::class, 'handleCasCallback']);
 Route::middleware(['jwt.auth'])->get('/me', function () {
     return response()->json(Auth::user());
 });
+
+use App\Http\Controllers\ProductController;
+Route::apiResource('products', ProductController::class);
